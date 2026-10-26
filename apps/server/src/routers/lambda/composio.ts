@@ -21,6 +21,7 @@ import {
   ConnectorStatus,
 } from '@/database/schemas';
 import { getComposioClient } from '@/libs/composio';
+import { getComposioToolkitTools } from '@/libs/composio/toolkitTools';
 import { inferCrudType } from '@/libs/mcp/utils';
 import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
@@ -290,10 +291,7 @@ export const composioRouter = router({
 
       let rawTools: any[] = [];
       try {
-        const toolsResp = await (ctx.composioClient.tools as any).getRawComposioTools({
-          toolkits: [appSlug],
-        });
-        rawTools = toolsResp?.items || toolsResp || [];
+        rawTools = await getComposioToolkitTools(ctx.composioClient, appSlug);
       } catch {
         // tools may not be available before auth
       }

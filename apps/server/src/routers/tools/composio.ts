@@ -5,6 +5,7 @@ import { wsCompatProcedure } from '@/business/server/trpc-middlewares/workspaceA
 import { ConnectorModel } from '@/database/models/connector';
 import { PluginModel } from '@/database/models/plugin';
 import { getComposioClient, isComposioConnectedAccountNotFoundError } from '@/libs/composio';
+import { getComposioToolkitTools } from '@/libs/composio/toolkitTools';
 import { publicProcedure, router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
 import { MCPService } from '@/server/services/mcp';
@@ -109,22 +110,17 @@ export const composioToolsRouter = router({
 
   getActions: publicProcedure.input(z.object({ appSlug: z.string() })).query(async ({ input }) => {
     const client = getComposioClient();
-    const response = await (client.tools as any).getRawComposioTools({
-      toolkits: [input.appSlug],
-    });
+    const items = await getComposioToolkitTools(client, input.appSlug);
 
-    const items = response?.items || response || [];
-    const tools = Array.isArray(items)
-      ? items.map((tool: any) => ({
-          description: tool.description || '',
-          inputSchema: tool.inputParameters ||
-            tool.inputSchema || {
-              properties: {},
-              type: 'object',
-            },
-          name: tool.slug || tool.name || '',
-        }))
-      : [];
+    const tools = items.map((tool: any) => ({
+      description: tool.description || '',
+      inputSchema: tool.inputParameters ||
+        tool.inputSchema || {
+          properties: {},
+          type: 'object',
+        },
+      name: tool.slug || tool.name || '',
+    }));
 
     return { tools };
   }),
@@ -136,22 +132,17 @@ export const composioToolsRouter = router({
       // tools.get() — the latter returns provider-wrapped (OpenAI-format) tools
       // whose name/params live under `.function`, so slug/name/inputSchema come
       // back empty and every tool collapses to the same `${identifier}____` name.
-      const response = await (ctx.composioClient.tools as any).getRawComposioTools({
-        toolkits: [input.appSlug],
-      });
+      const items = await getComposioToolkitTools(ctx.composioClient, input.appSlug);
 
-      const items = response?.items || response || [];
-      const tools = Array.isArray(items)
-        ? items.map((tool: any) => ({
-            description: tool.description || '',
-            inputSchema: tool.inputParameters ||
-              tool.inputSchema || {
-                properties: {},
-                type: 'object',
-              },
-            name: tool.slug || tool.name || '',
-          }))
-        : [];
+      const tools = items.map((tool: any) => ({
+        description: tool.description || '',
+        inputSchema: tool.inputParameters ||
+          tool.inputSchema || {
+            properties: {},
+            type: 'object',
+          },
+        name: tool.slug || tool.name || '',
+      }));
 
       return { tools };
     }),
