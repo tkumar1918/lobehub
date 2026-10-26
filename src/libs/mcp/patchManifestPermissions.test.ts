@@ -16,13 +16,23 @@ describe('patchManifestWithPermissions', () => {
     expect(out.api[0].humanIntervention).toBe('required');
   });
 
-  it('blocks disabled tools with a description + required', () => {
+  it('leaves disabled tools out so they cost no prompt tokens', () => {
+    // ROOT CAUSE:
+    //
+    // A disabled tool kept its full parameter schema in the prompt and only had its
+    // description swapped, so switching tools off in Settings > Connectors saved
+    // almost nothing.
+    //
+    // Before: disabled → blocking description + humanIntervention required.
+    // We fixed this by dropping disabled tools from the manifest.
     const out = patchManifestWithPermissions(
-      manifest([{ description: 'x', name: 'a' }]),
+      manifest([
+        { description: 'x', name: 'a' },
+        { description: 'y', name: 'b' },
+      ]),
       new Map([['a', ConnectorToolPermission.disabled]]),
     );
-    expect(out.api[0].humanIntervention).toBe('required');
-    expect(out.api[0].description).toContain('[TOOL DISABLED]');
+    expect(out.api).toEqual([{ description: 'y', name: 'b' }]);
   });
 
   it('leaves auto tools unchanged', () => {

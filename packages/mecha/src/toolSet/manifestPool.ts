@@ -25,74 +25,46 @@ export interface ConnectorFacts {
 }
 
 /**
- * What the model reads for a tool the user switched off: it stays listed so
- * the model can explain why it will not act, and the execution path blocks
- * it regardless.
- */
-export const disabledToolDescription = (toolName: string): string =>
-  `[TOOL DISABLED] The user has disabled this tool and it cannot be executed. ` +
-  `Do NOT call this tool. If the user asks to perform this action, inform them ` +
-  `that they have manually disabled "${toolName}" and can re-enable it in Settings > Connectors.`;
-
-/**
  * Patch a manifest's `api[]` with connector tool permissions:
- * `needs_approval` → `humanIntervention: 'required'`; `disabled` → the
- * blocking description plus `humanIntervention: 'required'`. The disabled
- * hard-block is enforced separately at execution time; this surfaces the
- * permission to the model and the approval prompt.
+ * `needs_approval` → `humanIntervention: 'required'`; `disabled` → the tool is
+ * left out, so a switched-off tool costs no prompt tokens. The disabled
+ * hard-block is enforced separately at execution time.
  */
 export function patchManifestWithPermissions<M extends { api: readonly { name: string }[] }>(
   manifest: M,
   toolPermissions: ConnectorToolPermissions,
 ): M {
-  const patchedApi = manifest.api.map((api) => {
-    const permission = toolPermissions.get(api.name);
-    if (permission === 'disabled') {
-      return {
-        ...api,
-        description: disabledToolDescription(api.name),
-        humanIntervention: 'required' as const,
-      };
-    }
-    if (permission === 'needs_approval') {
-      return { ...api, humanIntervention: 'required' as const };
-    }
-    return api;
-  });
+  const patchedApi = manifest.api
+    .filter((api) => toolPermissions.get(api.name) !== 'disabled')
+    .map((api) =>
+      toolPermissions.get(api.name) === 'needs_approval'
+        ? { ...api, humanIntervention: 'required' as const }
+        : api,
+    );
   return { ...manifest, api: patchedApi as M['api'] };
 }
 
 /**
- * A connector's tools as one MCP manifest: every synced tool is listed
- * (disabled ones with the blocking description), permissions become
- * `humanIntervention`. Returns nothing for a disabled connector or one with no
- * synced tools — such a connector must not replace a same-named plugin while
- * contributing nothing to call.
+ * A connector's tools as one MCP manifest: every synced tool the user has not
+ * disabled is listed, permissions become `humanIntervention`. Returns nothing
+ * for a disabled connector or one with no synced tools — such a connector must
+ * not replace a same-named plugin while contributing nothing to call.
  */
 export const buildConnectorManifest = (connector: ConnectorFacts): LobeToolManifest | undefined => {
   if (!connector.isEnabled) return undefined;
   if (connector.tools.length === 0) return undefined;
 
-  const api = connector.tools.map((tool) => {
-    const parameters = (tool.inputSchema ?? { properties: {}, type: 'object' }) as Record<
-      string,
-      unknown
-    >;
-    if (tool.permission === 'disabled') {
-      return {
-        description: disabledToolDescription(tool.toolName),
-        humanIntervention: 'required' as const,
-        name: tool.toolName,
-        parameters,
-      };
-    }
-    return {
+  const api = connector.tools
+    .filter((tool) => tool.permission !== 'disabled')
+    .map((tool) => ({
       description: tool.description ?? '',
       humanIntervention: tool.permission === 'needs_approval' ? ('required' as const) : undefined,
       name: tool.toolName,
-      parameters,
-    };
-  });
+      parameters: (tool.inputSchema ?? { properties: {}, type: 'object' }) as Record<
+        string,
+        unknown
+      >,
+    }));
 
   return {
     api,

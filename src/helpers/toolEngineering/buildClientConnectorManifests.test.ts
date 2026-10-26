@@ -57,13 +57,11 @@ describe('buildClientConnectorManifests', () => {
     expect(m.api[0].humanIntervention).toBe('required');
   });
 
-  it('keeps disabled tools but with a blocking description', () => {
+  it('leaves disabled tools out of the manifest', () => {
     const [m] = buildClientConnectorManifests([
       connector({ tools: [tool({ permission: ConnectorToolPermission.disabled })] }),
     ]);
-    // still present so the AI knows it exists, but told not to call it
-    expect(m.api).toHaveLength(1);
-    expect(m.api[0].description).toContain('[TOOL DISABLED]');
-    expect(m.api[0].humanIntervention).toBe('required');
+    // the connector stays (it still owns its identifier) but sends no disabled tool
+    expect(m.api).toEqual([]);
   });
 });

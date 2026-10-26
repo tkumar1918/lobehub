@@ -14,7 +14,7 @@ const manifest = (identifier: string, extra: Record<string, unknown> = {}) => ({
 });
 
 describe('buildConnectorManifest', () => {
-  it('lists every synced tool with its permission mapped, and nothing for a disabled or empty connector', () => {
+  it('lists every enabled tool with its permission mapped, and nothing for a disabled or empty connector', () => {
     const built = buildConnectorManifest({
       identifier: 'notion',
       isEnabled: true,
@@ -28,13 +28,12 @@ describe('buildConnectorManifest', () => {
 
     expect(built.identifier).toBe('notion');
     expect(built.type).toBe('mcp');
-    expect(built.meta.description).toBe('Notion connector with 3 tools');
+    expect(built.meta.description).toBe('Notion connector with 2 tools');
+    // A disabled tool is left out entirely so it costs no prompt tokens.
     expect(built.api.map((a) => [a.name, a.humanIntervention])).toEqual([
       ['search', undefined],
       ['write', 'required'],
-      ['delete', 'required'],
     ]);
-    expect(built.api[2].description).toContain('[TOOL DISABLED]');
     expect(built.api[1].parameters).toEqual({ properties: {}, type: 'object' });
 
     expect(
@@ -47,7 +46,7 @@ describe('buildConnectorManifest', () => {
 });
 
 describe('patchManifestWithPermissions', () => {
-  it('surfaces needs_approval and disabled on the matching api entries only', () => {
+  it('marks needs_approval and drops disabled on the matching api entries only', () => {
     const patched = patchManifestWithPermissions(
       {
         api: [
@@ -61,9 +60,9 @@ describe('patchManifestWithPermissions', () => {
         ['b', 'disabled'],
       ]),
     );
+    expect(patched.api.map((a) => a.name)).toEqual(['a', 'c']);
     expect(patched.api[0]).toMatchObject({ humanIntervention: 'required' });
-    expect(patched.api[1].description).toContain('[TOOL DISABLED]');
-    expect(patched.api[2]).toEqual({ name: 'c', parameters: {} });
+    expect(patched.api[1]).toEqual({ name: 'c', parameters: {} });
   });
 });
 
@@ -106,7 +105,7 @@ describe('assembleManifestPool', () => {
       },
     );
     const byId = Object.fromEntries(pool.manifests.map((m) => [m.identifier, m]));
-    expect(byId['community-mcp'].api[0].description).toContain('[TOOL DISABLED]');
+    expect(byId['community-mcp'].api).toEqual([]);
     expect(byId['gmail'].api[0].humanIntervention).toBe('required');
     expect(byId['linear'].api[0].humanIntervention).toBeUndefined();
   });
