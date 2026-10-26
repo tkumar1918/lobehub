@@ -1,61 +1,37 @@
 /**
- * Tools fetched by slug on top of a toolkit's default list, keyed by Composio app slug.
- *
- * `getRawComposioTools({ toolkits })` returns only the first page (20) of Composio's
- * "important" tools, which leaves out e.g. Google Sheets cell formatting.
+ * Upper bound on tools fetched per toolkit. Without an explicit limit the SDK returns
+ * only the first page (20) of Composio's "important" tools, which leaves out e.g.
+ * Google Sheets cell formatting; with one it returns every tool of the toolkit. Users
+ * switch off the tools they don't need per connector in Settings > Connectors.
  */
-export const COMPOSIO_EXTRA_TOOL_SLUGS: Record<string, string[]> = {
-  GOOGLESHEETS: [
-    'GOOGLESHEETS_FORMAT_CELL',
-    'GOOGLESHEETS_UPDATE_SHEET_PROPERTIES',
-    'GOOGLESHEETS_AUTO_RESIZE_DIMENSIONS',
-    'GOOGLESHEETS_SET_BASIC_FILTER',
-  ],
-};
+export const COMPOSIO_TOOLKIT_TOOL_LIMIT = 200;
 
 interface RawComposioToolsClient {
   tools: unknown;
 }
 
-const toToolList = (response: any): any[] => {
-  const items = response?.items || response || [];
-  return Array.isArray(items) ? items : [];
-};
-
 /**
- * Lists a toolkit's raw Composio tool definitions, including its configured extra tools.
+ * Lists every raw Composio tool definition of a toolkit.
  *
  * Use when:
- * - Building the tool list a Composio connector exposes to the model
+ * - Building the tool list a Composio connector syncs into LobeHub
  *
  * Expects:
- * - `client` is a Composio client whose `tools.getRawComposioTools` accepts
- *   either a `toolkits` or a `tools` filter
+ * - `client` is a Composio client whose `tools.getRawComposioTools` accepts a
+ *   `toolkits` filter with a `limit`
  *
  * Returns:
- * - The toolkit's default tools followed by any configured extras not already present;
- *   the default tools alone when the extra lookup fails
+ * - The toolkit's tools, or an empty list for an unexpected response shape
  */
 export const getComposioToolkitTools = async (
   client: RawComposioToolsClient,
   appSlug: string,
 ): Promise<any[]> => {
-  const tools = toToolList(
-    await (client.tools as any).getRawComposioTools({ toolkits: [appSlug] }),
-  );
+  const response = await (client.tools as any).getRawComposioTools({
+    limit: COMPOSIO_TOOLKIT_TOOL_LIMIT,
+    toolkits: [appSlug],
+  });
 
-  const extraSlugs = (COMPOSIO_EXTRA_TOOL_SLUGS[appSlug.toUpperCase()] ?? []).filter(
-    (slug) => !tools.some((tool) => tool?.slug === slug),
-  );
-  if (extraSlugs.length === 0) return tools;
-
-  try {
-    const extras = toToolList(
-      await (client.tools as any).getRawComposioTools({ tools: extraSlugs }),
-    );
-    return [...tools, ...extras];
-  } catch {
-    // A renamed or retired extra slug must not drop the toolkit's default tools
-    return tools;
-  }
+  const items = response?.items || response || [];
+  return Array.isArray(items) ? items : [];
 };
