@@ -71,6 +71,29 @@ describe('getComposioImportantToolSlugs', () => {
     expect(slugs).toEqual(new Set(['GOOGLESHEETS_BATCH_GET', 'GOOGLESHEETS_ADD_SHEET']));
   });
 
+  /** @example A deprecated important tool is swapped for the replacement it names. */
+  it('recommends the replacement of a deprecated tool instead of the tool itself', async () => {
+    const { client } = createClient({
+      items: [
+        {
+          description: 'DEPRECATED: Use GOOGLESHEETS_BATCH_GET instead. Tool to return ranges.',
+          isDeprecated: true,
+          slug: 'GOOGLESHEETS_GET_BATCH_VALUES',
+        },
+        {
+          description: 'DEPRECATED: Use direct Google Sheets actions instead.',
+          tags: ['important', 'deprecated'],
+          slug: 'GOOGLESHEETS_EXECUTE_SQL',
+        },
+        { description: 'Adds a sheet.', isDeprecated: false, slug: 'GOOGLESHEETS_ADD_SHEET' },
+      ],
+    });
+
+    const slugs = await getComposioImportantToolSlugs(client, 'GOOGLESHEETS');
+
+    expect(slugs).toEqual(new Set(['GOOGLESHEETS_BATCH_GET', 'GOOGLESHEETS_ADD_SHEET']));
+  });
+
   /** @example An empty important list must not disable every tool. */
   it('returns undefined for an empty list', async () => {
     const { client } = createClient({ items: [] });
