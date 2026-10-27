@@ -6,6 +6,8 @@ export interface ConnectorTool {
   displayName: string | null;
   id: string;
   inputSchema: Record<string, unknown> | null;
+  /** Display metadata, e.g. `composioImportant` for Composio toolkit tools. */
+  metadata?: Record<string, unknown> | null;
   permission: ConnectorToolPermission;
   toolName: string;
   userConnectorId: string;

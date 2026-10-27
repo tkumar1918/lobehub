@@ -35,3 +35,38 @@ export const getComposioToolkitTools = async (
   const items = response?.items || response || [];
   return Array.isArray(items) ? items : [];
 };
+
+/**
+ * Lists the slugs of the tools Composio marks as "important" for a toolkit.
+ *
+ * Use when:
+ * - Choosing which newly synced connector tools start enabled; the rest start disabled
+ *
+ * Expects:
+ * - `client` is a Composio client whose `tools.getRawComposioTools` accepts
+ *   `important` together with `toolkits` and `limit`
+ *
+ * Returns:
+ * - The important tool slugs, or `undefined` when Composio can't be asked, so callers
+ *   fall back to enabling every tool instead of disabling all of them
+ */
+export const getComposioImportantToolSlugs = async (
+  client: RawComposioToolsClient,
+  appSlug: string,
+): Promise<Set<string> | undefined> => {
+  try {
+    const response = await (client.tools as any).getRawComposioTools({
+      important: true,
+      limit: COMPOSIO_TOOLKIT_TOOL_LIMIT,
+      toolkits: [appSlug],
+    });
+
+    const items = response?.items || response || [];
+    if (!Array.isArray(items) || items.length === 0) return undefined;
+
+    return new Set(items.map((tool: any) => tool.slug || tool.name).filter(Boolean));
+  } catch (error) {
+    console.warn('[Composio] Failed to fetch important tools:', error);
+    return undefined;
+  }
+};

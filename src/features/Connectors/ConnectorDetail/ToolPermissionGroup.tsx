@@ -51,6 +51,8 @@ const styles = createStaticStyles(({ css, cssVar }) => ({
 }));
 
 interface ToolPermissionGroupProps {
+  /** Whether the group starts expanded. Defaults to true. */
+  defaultExpanded?: boolean;
   /** Read-only mode — the caller lacks the manage permission for this connector. */
   disabled?: boolean;
   label: string;
@@ -60,9 +62,9 @@ interface ToolPermissionGroupProps {
 }
 
 const ToolPermissionGroup = memo<ToolPermissionGroupProps>(
-  ({ disabled, label, tools, onPermissionChange, onBatchPermission }) => {
+  ({ defaultExpanded = true, disabled, label, tools, onPermissionChange, onBatchPermission }) => {
     const { t } = useTranslation('tool');
-    const [expanded, setExpanded] = useState(true);
+    const [expanded, setExpanded] = useState(defaultExpanded);
 
     if (tools.length === 0) return null;
 

@@ -17,6 +17,8 @@ export interface SyncToolInput {
   description?: string;
   displayName?: string;
   inputSchema?: Record<string, unknown>;
+  /** Display metadata; merged into an existing row's metadata on conflict. */
+  metadata?: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
   renderConfig?: Record<string, unknown>;
   toolName: string;
@@ -65,6 +67,7 @@ export class ConnectorToolModel {
           displayName: t.displayName ?? null,
           inputSchema: t.inputSchema ?? null,
           isWorkArtifact: false,
+          metadata: t.metadata ?? null,
           outputSchema: t.outputSchema ?? null,
           permission: t.defaultPermission ?? Permission.auto,
           renderConfig: t.renderConfig ?? null,
@@ -87,6 +90,7 @@ export class ConnectorToolModel {
           description: sql`excluded.description`,
           displayName: sql`excluded.display_name`,
           inputSchema: sql`excluded.input_schema`,
+          metadata: sql`coalesce(user_connector_tools.metadata, '{}'::jsonb) || coalesce(excluded.metadata, '{}'::jsonb)`,
           outputSchema: sql`excluded.output_schema`,
           renderConfig: sql`excluded.render_config`,
           updatedAt: new Date(),

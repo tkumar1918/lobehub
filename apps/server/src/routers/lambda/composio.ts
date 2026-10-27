@@ -19,9 +19,13 @@ import {
   type ConnectorMetadata,
   ConnectorSourceType,
   ConnectorStatus,
+  ConnectorToolPermission,
 } from '@/database/schemas';
 import { getComposioClient } from '@/libs/composio';
-import { getComposioToolkitTools } from '@/libs/composio/toolkitTools';
+import {
+  getComposioImportantToolSlugs,
+  getComposioToolkitTools,
+} from '@/libs/composio/toolkitTools';
 import { inferCrudType } from '@/libs/mcp/utils';
 import { router } from '@/libs/trpc/lambda';
 import { serverDatabase } from '@/libs/trpc/lambda/middleware';
@@ -121,6 +125,12 @@ async function upsertComposioConnector(
     agentId?: string;
     composio: ComposioConnectorMetadata;
     identifier: string;
+    /**
+     * Slugs Composio marks as "important" for the toolkit. When given, every tool is
+     * tagged `metadata.composioImportant`, and newly inserted tools outside this set
+     * start disabled. Existing rows keep the permission the user chose.
+     */
+    importantToolSlugs?: Set<string>;
     label: string;
     /**
      * When true, the connector's tool set is REPLACED by `tools`: rows missing
@@ -176,12 +186,17 @@ async function upsertComposioConnector(
     if (params.tools.length > 0) {
       await connectorToolModel.upsertMany(
         connectorId,
-        params.tools.map((t) => ({
-          crudType: inferCrudType(t.name),
-          description: t.description,
-          inputSchema: t.inputSchema,
-          toolName: t.name,
-        })),
+        params.tools.map((t) => {
+          const important = params.importantToolSlugs?.has(t.name);
+          return {
+            crudType: inferCrudType(t.name),
+            defaultPermission: important === false ? ConnectorToolPermission.disabled : undefined,
+            description: t.description,
+            inputSchema: t.inputSchema,
+            metadata: important === undefined ? undefined : { composioImportant: important },
+            toolName: t.name,
+          };
+        }),
       );
     }
 
@@ -290,8 +305,12 @@ export const composioRouter = router({
       );
 
       let rawTools: any[] = [];
+      let importantToolSlugs: Set<string> | undefined;
       try {
-        rawTools = await getComposioToolkitTools(ctx.composioClient, appSlug);
+        [rawTools, importantToolSlugs] = await Promise.all([
+          getComposioToolkitTools(ctx.composioClient, appSlug),
+          getComposioImportantToolSlugs(ctx.composioClient, appSlug),
+        ]);
       } catch {
         // tools may not be available before auth
       }
@@ -355,6 +374,7 @@ export const composioRouter = router({
           status: 'PENDING',
         },
         identifier,
+        importantToolSlugs,
         label,
         tools: manifest.api.map((a) => ({
           description: a.description,
@@ -566,6 +586,7 @@ export const composioRouter = router({
           status,
         },
         identifier,
+        importantToolSlugs: await getComposioImportantToolSlugs(ctx.composioClient, appSlug),
         label,
         replaceTools: true,
         tools,

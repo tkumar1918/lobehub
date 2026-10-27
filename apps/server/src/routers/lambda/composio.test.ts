@@ -219,6 +219,47 @@ describe('composioRouter.updateComposioPlugin dual-write', () => {
     ]);
   });
 
+  /** @example Composio's important tools start enabled; the rest start disabled. */
+  it('tags tools by importance and disables the non-important ones by default', async () => {
+    mocks.getRawComposioTools.mockResolvedValue({ items: [{ slug: 'GMAIL_SEND' }] });
+
+    await caller().updateComposioPlugin({
+      ...input,
+      tools: [...input.tools, { name: 'GMAIL_ADD_LABEL' }],
+    });
+
+    expect(mocks.getRawComposioTools).toHaveBeenCalledWith(
+      expect.objectContaining({ important: true, toolkits: ['GMAIL'] }),
+    );
+    expect(mocks.connectorToolUpsertMany).toHaveBeenCalledWith('conn-new', [
+      expect.objectContaining({
+        defaultPermission: undefined,
+        metadata: { composioImportant: true },
+        toolName: 'GMAIL_SEND',
+      }),
+      expect.objectContaining({
+        defaultPermission: 'disabled',
+        metadata: { composioImportant: false },
+        toolName: 'GMAIL_ADD_LABEL',
+      }),
+    ]);
+  });
+
+  /** @example Without Composio's important list, every tool stays enabled. */
+  it('keeps every tool enabled when the important list is unavailable', async () => {
+    mocks.getRawComposioTools.mockRejectedValue(new Error('composio down'));
+
+    await caller().updateComposioPlugin(input);
+
+    expect(mocks.connectorToolUpsertMany).toHaveBeenCalledWith('conn-new', [
+      expect.objectContaining({
+        defaultPermission: undefined,
+        metadata: undefined,
+        toolName: 'GMAIL_SEND',
+      }),
+    ]);
+  });
+
   it('prunes all connector tools when the refreshed list is empty', async () => {
     mocks.connectorFindScopedByIdentifier.mockResolvedValue({ id: 'conn-existing' });
 

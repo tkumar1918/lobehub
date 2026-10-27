@@ -68,6 +68,7 @@ vi.mock('@/store/tool/slices/connector', () => ({
       (connectorId: string) =>
       (state: typeof mocks.toolState): (typeof mocks.toolState.connectors)[number] | undefined =>
         state.connectors.find((connector) => connector.id === connectorId),
+    connectorToolsByImportance: () => () => ({ importantTools: [], otherTools: [] }),
     connectorToolsGrouped: () => (state: typeof mocks.toolState) => state.connectorTools,
     isSyncing: () => (state: typeof mocks.toolState) => state.syncing,
   },

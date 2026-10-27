@@ -58,6 +58,10 @@ const ConnectorDetail = memo<ConnectorDetailProps>(
     const { readTools, createTools, updateTools, deleteTools } = useToolStore(
       connectorSelectors.connectorToolsGrouped(connectorId),
     );
+    const { importantTools, otherTools } = useToolStore(
+      connectorSelectors.connectorToolsByImportance(connectorId),
+    );
+    const splitByImportance = importantTools.length + otherTools.length > 0;
     const syncing = useToolStore(connectorSelectors.isSyncing(connectorId));
 
     const syncConnectorTools = useToolStore((s) => s.syncConnectorTools);
@@ -362,7 +366,25 @@ const ConnectorDetail = memo<ConnectorDetailProps>(
 
           {middleSlot}
 
-          {hasTools ? (
+          {hasTools && splitByImportance ? (
+            <div style={{ flex: 1, overflowY: 'auto' }}>
+              <ToolPermissionGroup
+                disabled={!canManage}
+                label={t('connector.recommendedTools', 'Recommended tools')}
+                tools={importantTools}
+                onBatchPermission={handleBatchPermission}
+                onPermissionChange={handlePermissionChange}
+              />
+              <ToolPermissionGroup
+                defaultExpanded={false}
+                disabled={!canManage}
+                label={t('connector.moreTools', 'More tools (off by default)')}
+                tools={otherTools}
+                onBatchPermission={handleBatchPermission}
+                onPermissionChange={handlePermissionChange}
+              />
+            </div>
+          ) : hasTools ? (
             <div style={{ flex: 1, overflowY: 'auto' }}>
               <ToolPermissionGroup
                 disabled={!canManage}

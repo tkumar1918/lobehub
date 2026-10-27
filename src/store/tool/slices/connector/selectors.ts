@@ -64,6 +64,31 @@ const connectorToolsGrouped =
     };
   };
 
+interface ToolsByImportance {
+  /** Tools Composio marks as important for the toolkit; they start enabled. */
+  importantTools: ConnectorTool[];
+  /** The rest of the toolkit; they start disabled. */
+  otherTools: ConnectorTool[];
+}
+
+/**
+ * Splits a Composio connector's tools by `metadata.composioImportant`. Both lists are
+ * empty when no tool carries the flag (non-Composio connectors, or tools synced before
+ * the flag existed), so callers fall back to the CRUD grouping.
+ */
+const connectorToolsByImportance =
+  (connectorId: string) =>
+  (s: ToolStore): ToolsByImportance => {
+    const tools = allById(connectorId)(s)?.tools ?? [];
+    const flagged = tools.filter((t) => typeof t.metadata?.composioImportant === 'boolean');
+    if (flagged.length === 0) return { importantTools: [], otherTools: [] };
+
+    return {
+      importantTools: tools.filter((t) => t.metadata?.composioImportant === true),
+      otherTools: tools.filter((t) => t.metadata?.composioImportant !== true),
+    };
+  };
+
 const isSyncing =
   (connectorId: string) =>
   (s: ToolStore): boolean =>
@@ -116,6 +141,7 @@ export const connectorSelectors = {
   connectorByIdentifier,
   connectorList,
   isAgentConnectorsInit,
+  connectorToolsByImportance,
   connectorToolsGrouped,
   customConnectors,
   connectorToolsGroupedByIdentifier:
